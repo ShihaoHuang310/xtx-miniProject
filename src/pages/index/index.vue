@@ -3,13 +3,23 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 
 import XtxSwiper from '@/components/XtxSwiper.vue'
+import XtxGuess from '@/components/XtxGuess.vue'
+
 import CustomNavbar from './components/CustomNavbar.vue'
 import CategoryPanel from './components/CategoryPanel.vue'
+import HotPanel from './components/HotPanel.vue'
 
-import { getHomeBannerAPI, getHomeCategoryAPI } from '@/services/home'
-import type { BannerItem, CategoryItem } from '@/types/home'
+import { getHomeBannerAPI, getHomeCategoryAPI, getHomeHotAPI } from '@/services/home'
+import type { BannerItem, CategoryItem, HotItem } from '@/types/home'
+import type { XtxGuessInstance } from '@/types/component'
+
+// 获取猜你喜欢组件实例
+const guessRef = ref<XtxGuessInstance>()
 const bannerList = ref<BannerItem[]>([])
 const categoryList = ref<CategoryItem[]>([])
+const hotList = ref<HotItem[]>([])
+// 下拉刷新状态
+const isTriggered = ref(false)
 
 const getHomeBannerList = async () => {
   const res = await getHomeBannerAPI()
@@ -21,19 +31,61 @@ const getHomeCategoryList = async () => {
   console.log('categoryList', res)
   categoryList.value = res.result
 }
+const getHotList = async () => {
+  const res = await getHomeHotAPI()
+  console.log('categoryList', res)
+  hotList.value = res.result
+}
 
 onLoad(() => {
   getHomeBannerList()
   getHomeCategoryList()
+  getHotList()
 })
+// 滚动触底事件
+const onScrolltolower = () => {
+  guessRef.value?.getMore()
+}
+// 自定义下拉刷新被触发
+const onRefresherrefresh = async () => {
+  // 开启动画
+  isTriggered.value = true
+  // 重置猜你喜欢组件数据
+  guessRef.value?.resetData()
+  // 加载数据
+  await Promise.all([getHomeBannerList(), getHomeCategoryList(), getHotList()])
+  // 关闭动画
+  isTriggered.value = false
+}
 </script>
 
 <template>
   <CustomNavbar />
-  <XtxSwiper :list="bannerList" />
-  <CategoryPanel :list="categoryList" />
+  <!-- 滚动容器 -->
+  <scroll-view
+    class="scroll-view"
+    @refresherrefresh="onRefresherrefresh"
+    :refresher-triggered="isTriggered"
+    refresher-enabled
+    scroll-y
+    @scrolltolower="onScrolltolower"
+  >
+    <XtxSwiper :list="bannerList" />
+    <CategoryPanel :list="categoryList" />
+    <HotPanel :list="hotList" />
+    <!-- 猜你喜欢 -->
+    <XtxGuess ref="guessRef" />
+  </scroll-view>
 </template>
 
 <style lang="scss">
-//
+page {
+  background-color: #fff;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.scroll-view {
+  flex: 1;
+}
 </style>
